@@ -14,6 +14,7 @@ library(arulesViz)
 logs1 <- {}
 survey1 <- {}
 
+
 ui <- dashboardPage(
   dashboardHeader(),
   dashboardSidebar(
@@ -37,7 +38,7 @@ ui <- dashboardPage(
                       multiple = FALSE,
                       accept = c(
                         "text/csv",
-                        "text/coma-separated-values, text/plain",
+                        "text/comma-separated-values,text/plain",
                         ".csv")
             ),
             tags$hr(),
@@ -90,7 +91,7 @@ ui <- dashboardPage(
                        plotOutput("plt4"),
                        plotOutput("plt5"),
                        plotOutput("plt6")
-               )
+                )
               )
       ),
       tabItem(tabName = "single_user",
@@ -105,6 +106,7 @@ ui <- dashboardPage(
                        useShinyjs(),
                        tableOutput("tbl"),
                        plotOutput("plot1"),
+                       plotOutput("plot9"),
                        plotOutput("plot2"),
                        plotOutput("plot3"),
                        plotOutput("plot4"),
@@ -134,7 +136,8 @@ server <- function(input, output, session)
     req(input$file1)
     tryCatch(
       {
-        logs1 <<- read.csv(input$file1$datapath, header = TRUE, sep = ";", fileEncoding = "MACROMAN" )
+        logs1 <<- read.csv(input$file1$datapath,
+                           header = TRUE, sep = ";", fileEncoding = "MACROMAN")
         logs1$Time <<- dmy_hm(logs1$Time)
       },
       error = function(e) {
@@ -231,7 +234,7 @@ server <- function(input, output, session)
     show("plot7")
     show("plot8")
     show("tbl")
-   })
+  })
   
   sur <- reactiveValues()
   
@@ -338,7 +341,8 @@ server <- function(input, output, session)
     user <- filter(logs1, User == input$selectedUser)
     if (nrow(user)>0){
       show("plot1")
-      barplot(table(user$Type), main="Number of different mode used")
+      pie(table(user$Type), main="Number of different mode used",
+          col = c("black", "blue", "red", "cyan", "orange", "green", "white"))
     }
     else{
       hide("plot1")
@@ -349,16 +353,30 @@ server <- function(input, output, session)
   output$plot2 <- renderPlot({
     req(input$file1)
     user <- filter(logs1, User == input$selectedUser)
+    values_moment <- getTimelog(user, input$displayTime)
+    val <- table(values_moment)
+    print(table(values_moment))
+    print("####################################")
+    var <- with(user, table(Type))
+    print(var)
+    print("####################################")
+    res <- bind_rows(var, val)
+    print(res)
+    print("#################################")
+    res1 <- t(colSums(res, na.rm = TRUE))
+    print(res1)
     
-    Auto_skipped <- filter(user, Type == "Auto skipped")
-    if(nrow(Auto_skipped) > 0){
-      show("plot2")
-      values_moment <- getTimelog(Auto_skipped, input$displayTime)
-      barplot(table(values_moment), main=paste(c('Use of Auto Skipped mode by ', input$displayTime), collapse=" "))
-    }
-    else{
-      hide("plot2")
-    }
+    #ggplot(data = user, aes(x = table(values_moment), y = ))
+    
+    # Auto_skipped <- filter(user, Type == "Auto skipped")
+    # if(nrow(Auto_skipped) > 0){
+    #   show("plot2")
+    #   values_moment <- getTimelog(Auto_skipped, input$displayTime)
+    #   barplot(table(values_moment), main=paste(c('Use of Auto Skipped mode by ', input$displayTime), collapse=" "))
+    # }
+    # else{
+    #   hide("plot2")
+    # }
     
   })
   
@@ -448,6 +466,17 @@ server <- function(input, output, session)
     else{
       hide("plot8")
     }
+    
+  })
+  
+  output$plot9 <- renderPlot({
+    req(input$file1)
+    user <- filter(logs1, User == input$selectedUser)
+    ct <- strftime(user$Time, format="%H:%M",tz="UTC")
+    user$PeriodDay <- cut(strptime(ct, format = "%H:%M",tz="UTC"), 
+                          breaks = strptime(c("00:00","04:30", "12:00", "21:00", "23:59"), format = "%H:%M", tz="UTC"), 
+                          labels = c("night","morning","evening","night"))
+    with(user, barplot(table(PeriodDay), main = "smoke class by period of the day", col = c("green", "blue", "red")))
     
   })
   
